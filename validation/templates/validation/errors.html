@@ -1,0 +1,199 @@
+{% extends '_base.html' %}
+
+{% load crispy_forms_tags %}
+
+{% load static %}
+
+{% block extra_javascript %}
+
+
+
+ 
+{# Load datatables JS and CSS #}
+ <script src="//cdn.datatables.net/1.10.19/js/jquery.dataTables.min.js"></script>
+ <link rel="stylesheet" type="text/css" href="//cdn.datatables.net/1.10.19/css/jquery.dataTables.min.css" />
+    
+{# Datatables buttons #}
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jszip/2.5.0/jszip.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/pdfmake.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/vfs_fonts.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/1.5.4/js/dataTables.buttons.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/1.5.4/js/buttons.colVis.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/1.5.4/js/buttons.html5.min.js"></script>
+
+
+{# Load Highcharts JS #}    
+<script src="https://code.highcharts.com/highcharts.js"></script>
+
+<script type="text/javascript">
+
+// global vars
+var nb_rows=0;
+
+
+$(document).ready(function() {
+	//alert('ready!');
+	//console.log('ready');
+	var svc_type = '{{ request.session.svc_type }}'; // get the current service type
+	//console.log('svc_type='+svc_type);
+	
+	// DataTables AJAX options contains the URL to fetch data from server
+	dt_ajax_options = {
+            url:  "{% url 'errors_json' %}"     	    
+	}
+	
+	// get the ivoid and url passed by the view
+	var svc_ivoid = '{{ svc_ivoid }}'; 
+	var svc_url = '{{ svc_url }}'; 
+	
+	console.log('svc_ivoid=',svc_ivoid)
+	console.log('svc_url=',svc_url)
+	
+	// if they mean something, add them to the AJAX data 
+	// inspired by https://stackoverflow.com/questions/37349073/url-arguments-with-django-ajax-datatable
+	
+	if(svc_ivoid!='None' && svc_url!='None') {
+		dt_ajax_options['data'] = {"svc_ivoid":svc_ivoid, "svc_url":svc_url};
+    }
+	
+	// title and filenames for documents exported with the buttons extension
+	var exportTitle= 'Error';
+	
+	// set page description
+	var page_description = svc_type+' errors';
+	if(svc_ivoid!='None' && svc_url!='None') {
+		page_description += ' for service ivoid: '+svc_ivoid+' and url: '+svc_url;
+	}
+	$('#page_description').html(page_description);
+
+	
+	
+    var oTable = $('.datatable').DataTable({
+        
+        dom: 'lBfrtip', // dom for buttons
+    	buttons: [ // buttons for exporting data and column visibility - cf https://datatables.net/extensions/buttons/examples/initialisation/export.html
+			{
+			    extend: 'copy',
+			    title: exportTitle,
+			    exportOptions: {
+                    columns: ':visible'
+                }
+			},
+			{
+			    extend: 'csv',
+			    title: exportTitle,
+			    exportOptions: {
+                    columns: ':visible'
+                } 
+			},
+            {
+                  extend: 'pdf',
+                  title: exportTitle,
+                  exportOptions: {
+                      columns: ':visible'
+                  }
+            },
+            {
+            	extend: 'colvis',
+                postfixButtons: [ 'colvisRestore' ]
+            },
+            {
+            	extend: 'colvisGroup',
+               	text: 'Show all columns',
+               	show: ':hidden',
+            }, 
+        ],
+        scrollX: true,
+        scrollY: '70vh', // https://datatables.net/examples/basic_init/scroll_y_dynamic.html
+        searching: true,
+        processing: true,
+        serverSide: true,
+        searchDelay: 1000, // set a throttle frequency for searching
+        //ajax: "{% url 'errors_json' %}",  
+        ajax: dt_ajax_options,
+        
+        
+        "createdRow": function ( row, data, index ) { // callback to change background-color depending on validation results
+
+			//console.log('createdRow data=',data)
+			
+		    
+		}, // end callback
+
+		
+		
+        
+        
+            
+    });
+   
+   	// called when table is displayed
+    oTable.on( 'init.dt', function (e,settings,json) {
+        console.log( 'Table initialisation complete settings=',settings,' json=',json);
+        //console.log(json.nb_result_ok);
+    } )
+    
+    
+	// called when a search is done
+   	oTable.on( 'search.dt', function () {
+   		var searchTerm = oTable.search();
+    	console.log( 'Currently applied global search: '+searchTerm );
+	} );
+
+	// called on xhr event => fired when an Ajax request is completed.
+	oTable.on( 'xhr', function ( e, settings, json ) {
+    	console.log( 'Ajax event occurred. event=',e,'json=: ', json );
+    	
+
+	}); // on xhr
+
+
+}); // document ready
+</script>
+{% endblock extra_javascript %}
+
+{% block title %}Errors{% endblock title %}
+
+{% block content %}
+
+<div class="row">
+
+{% include '_nav.html' with page='errors' %}
+
+  <div class="col-11">
+    <div class="tab-content" id="v-pills-tabContent">
+	  <div class="tab-pane fade show active" >
+			
+		{% crispy form %}
+		
+		<hr>
+		<div id="page_description"></div>
+		<hr>
+		
+ 		<table id="theTable" class="table table-bordered table-striped display datatable" width="100%" cellpadding="0" cellspacing="0">
+	        <thead>
+	            <tr>
+	            	<th>id</th>
+	                <th>IVOID</th>
+	                <th>URL</th>
+	                <th>Svc&nbsp;Type</th>
+	                <th>Date</th>
+	                <th>Type</th>
+	                <th>Num</th>
+	                <th>Name</th>
+	                <th>Msg</th>
+	                <th>Section</th>
+	            </tr>
+	        </thead>
+	        <tbody>
+	        </tbody>
+	    </table>
+		
+	   </div>
+    </div>
+  </div>
+
+</div>
+
+{% endblock content %}
+

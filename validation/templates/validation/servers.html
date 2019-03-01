@@ -1,0 +1,220 @@
+{% extends '_base.html' %}
+
+{% load crispy_forms_tags %}
+
+{% load static %}
+
+{% block extra_javascript %}
+
+
+{# Load datatables JS and CSS #}
+ <script src="//cdn.datatables.net/1.10.19/js/jquery.dataTables.min.js"></script>
+<link rel="stylesheet" type="text/css" href="//cdn.datatables.net/1.10.19/css/jquery.dataTables.min.css" />
+    
+       
+{# Datatables buttons #}
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jszip/2.5.0/jszip.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/pdfmake.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/vfs_fonts.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/1.5.4/js/dataTables.buttons.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/1.5.4/js/buttons.colVis.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/1.5.4/js/buttons.html5.min.js"></script>
+
+{# Datatables select #}
+<script type="text/javascript" src="https://cdn.datatables.net/select/1.2.6/js/dataTables.select.min.js"></script>
+
+
+
+<script type="text/javascript">
+
+$(document).ready(function() {
+	//alert('ready!');
+	//console.log('ready');
+	
+	var svc_type = '{{ request.session.svc_type }}'; // get the current service type
+	
+	// title and filenames for documents exported with the buttons extension
+	var exportTitle= 'Servers';
+		
+	// set page description
+	var page_description = svc_type+' servers';
+	$('#page_description').html(page_description);
+
+		
+	
+	$("#serversForm").submit( function(eventObj) {
+
+		//alert('serversForm submitted !');
+		
+		//console.log(eventObj);
+		//console.log(buttonClicked);
+		if(buttonClicked==1) return true; // display
+		
+		if(buttonClicked==2) { // display services
+		
+			// check if a row is selected
+		 	nb_selected = oTable.rows('.selected').data().length;
+			
+		    if(nb_selected==0) {
+		    	alert('Please select one server');
+		    	return false;
+		    }
+	
+			// get data from selected row
+			var server;
+
+			
+		    for (var i = 0; i < oTable.rows('.selected').data().length; i++) { 
+		        server = oTable.rows('.selected').data()[i][0]; 	// col 0 (starting at 0) = server    	
+		    }
+			
+			// fill the hidden form elements
+			$("#serversForm")[0].elements['server'].value=server;
+
+			// set the tab for the result page
+			old_target = $("#serversForm")[0].target;
+			$("#serversForm")[0].target = 'servers';
+			
+			setTimeout(function() { // since we just changed it, reset the target of the form to what it was
+    			// executes after the form has been sent
+    			console.log('resetting target to='+old_target);
+    			$("#serversForm")[0].target = old_target;
+  			}, 500);
+			
+			return true;
+		}
+		
+		if(buttonClicked==3) { // errors frequency
+		
+			// check if a row is selected
+		 	nb_selected = oTable.rows('.selected').data().length;
+			
+		    if(nb_selected==0) {
+		    	alert('Please select one service');
+		    	return false;
+		    }
+	
+			// get data from selected row
+			var server;
+
+			
+		    for (var i = 0; i < oTable.rows('.selected').data().length; i++) { 
+		        server = oTable.rows('.selected').data()[i][0]; 	// col 0 (starting at 0) = server    	
+		    }
+			
+			// fill the hidden form elements
+			$("#serversForm")[0].elements['server'].value=server;
+
+			// set the tab for the result page
+			old_target = $("#serversForm")[0].target;
+			$("#serversForm")[0].target = 'efreqs';
+			
+			setTimeout(function() { // since we just changed it, reset the target of the form to what it was
+    			// executes after the form has been sent
+    			console.log('resetting target to='+old_target);
+    			$("#serversForm")[0].target = old_target;
+  			}, 500);
+  			
+			return true;
+		}
+		
+		
+    });
+		
+		
+		
+    var oTable = $('.datatable').DataTable({
+	    select: 'single', // allow selection of a single row
+        dom: 'lBfrtip', // dom for buttons
+    	buttons: [ // buttons for exporting data and column visibility - cf https://datatables.net/extensions/buttons/examples/initialisation/export.html
+			{
+			    extend: 'copy',
+			    title: exportTitle,
+			    exportOptions: {
+                    columns: ':visible'
+                }
+			},
+			{
+			    extend: 'csv',
+			    title: exportTitle,
+			    exportOptions: {
+                    columns: ':visible'
+                } 
+			},
+            {
+                  extend: 'pdf',
+                  title: exportTitle,
+                  exportOptions: {
+                      columns: ':visible'
+                  }
+            },
+            {
+            	extend: 'colvis',
+                postfixButtons: [ 'colvisRestore' ]
+            },
+            {
+            	extend: 'colvisGroup',
+               	text: 'Show all columns',
+               	show: ':hidden',
+            }, 
+        ],
+        scrollX: true,
+        scrollY: '70vh', // https://datatables.net/examples/basic_init/scroll_y_dynamic.html
+        searching: true,
+        processing: true, 
+        serverSide: false,   
+    });
+   
+});
+</script>
+{% endblock extra_javascript %}
+
+{% block title %}Servers{% endblock title %}
+
+{% block content %}
+
+<div class="row">
+
+{% include '_nav.html' with page='servers' %}
+
+  <div class="col-11">
+    <div class="tab-content" id="v-pills-tabContent">
+	  <div class="tab-pane fade show active" >
+			
+		{% crispy form %}
+		<hr>
+		<div id="page_description"></div>
+		<hr>	 
+ 		<table id="theTable" class="table table-bordered table-striped display datatable" width="100%" cellpadding="0" cellspacing="0">
+	        <thead>
+	            <tr>
+	                <th>Server&nbsp;Name</th>
+	                <th>Nb&nbsp;Services</th>
+	                <th>Nb&nbsp;Warnings</th>
+	                <th>Nb&nbsp;Errors</th>
+	                <th>Nb&nbsp;Fatal&nbsp;Errors</th>
+	                <th>Nb&nbsp;Failures</th>
+	            </tr>
+	        </thead>
+	        <tbody>
+	        	{% for server in object_list %}
+	        	<tr>
+	        	<td>{{ server.name }}</td>
+	        	<td>{{ server.nb_ivoid }}</td>
+	        	<td>{{ server.nb_warn }}</td>
+	        	<td>{{ server.nb_err }}</td>
+	        	<td>{{ server.nb_fatal }}</td>
+	        	<td>{{ server.nb_fail }}</td>
+	        	</tr>
+	        	{% endfor %}
+	        </tbody>
+	    </table>
+		 
+	   </div>
+    </div>
+  </div>
+
+</div>
+
+{% endblock content %}
+

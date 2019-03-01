@@ -1,0 +1,377 @@
+{% extends '_base.html' %}
+
+{% load crispy_forms_tags %}
+
+{% load static %}
+
+{% block extra_javascript %}
+
+
+{# Load datatables JS and CSS #}
+ <script src="//cdn.datatables.net/1.10.19/js/jquery.dataTables.min.js"></script>
+<link rel="stylesheet" type="text/css" href="//cdn.datatables.net/1.10.19/css/jquery.dataTables.min.css" />
+    
+       
+{# Datatables buttons #}
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jszip/2.5.0/jszip.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/pdfmake.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/vfs_fonts.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/1.5.4/js/dataTables.buttons.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/1.5.4/js/buttons.colVis.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/1.5.4/js/buttons.html5.min.js"></script>
+
+{# Datatables select #}
+<script type="text/javascript" src="https://cdn.datatables.net/select/1.2.6/js/dataTables.select.min.js"></script>
+
+
+{# Load Highcharts JS #}    
+<script src="https://code.highcharts.com/highcharts.js"></script>
+
+
+<script type="text/javascript">
+
+$(document).ready(function() {
+	//alert('ready!');
+	//console.log('ready');
+	// title and filenames for documents exported with the buttons extension
+	var exportTitle= 'Errors Frequency';
+		
+	var svc_type = '{{ request.session.svc_type }}'; // get the current service type	
+	// get the server passed by the view
+	var svc_server = '{{ svc_server }}'; 
+	
+	console.log('svc_server=',svc_server)
+		
+
+	// set page description
+	var page_description = svc_type+' errors frequency';
+	if(svc_server!='None') {
+		page_description += ' for server '+svc_server;
+	}
+	$('#page_description').html(page_description);
+		
+		
+	// prepare data for bar charts
+	
+	categories_fatals=[];
+	data_fatals=[];
+	
+	categories_errors=[];
+	data_errors=[];
+	
+	categories_warnings=[];
+	data_warnings=[];
+		
+	
+
+	{% for error in object_list %}
+	if('{{error.type}}'=='fatal') {
+		categories_fatals.push('{{error.name}}');
+		data_fatals.push({{error.count}});
+	}	
+	if('{{error.type}}'=='error') {
+		categories_errors.push('{{error.name}}');
+		data_errors.push({{error.count}});
+	}
+	if('{{error.type}}'=='warning') {
+		categories_warnings.push('{{error.name}}');
+		data_warnings.push({{error.count}});
+	}	
+	{% endfor %}
+    
+    
+    Highcharts.chart('barchart_container_fatals', {
+        chart: {
+            type: 'bar',
+            zoomType: 'xy',
+            animation: false,
+        },
+        title: {
+            text: 'Fatal Errors Frequencies',
+        },
+        subtitle: {
+			text: '',
+
+		},
+        xAxis: {
+            categories: categories_fatals,
+            title: {
+                text: null
+            }
+        },
+        yAxis: {
+            min: 0,
+            title: {
+                text: 'Nb of occurences',
+                align: 'high'
+            },
+            labels: {
+                overflow: 'justify'
+            }
+        },
+        tooltip: {
+            valueSuffix: ' fatal errors'
+        },
+        plotOptions: {
+            bar: {
+                dataLabels: {
+                    enabled: true
+                }
+            },
+            series: {
+           		animation: false,
+           	},
+        },
+        legend: {
+            layout: 'vertical',
+            align: 'right',
+            verticalAlign: 'top',
+            x: -40,
+            y: 80,
+            floating: true,
+            borderWidth: 1,
+            backgroundColor: ((Highcharts.theme && Highcharts.theme.legendBackgroundColor) || '#FFFFFF'),
+            shadow: true
+        },
+        credits: {
+            enabled: false
+        },
+        series: [{
+            name: 'Fatal Errors',
+            data: data_fatals,
+        }]
+    });
+    
+    
+    Highcharts.chart('barchart_container_errors', {
+        chart: {
+            type: 'bar',
+            zoomType: 'xy'
+        },
+        title: {
+            text: 'Errors Frequencies',
+        },
+        subtitle: {
+			text: '',
+
+		},
+        xAxis: {
+            categories: categories_errors,
+            title: {
+                text: null
+            }
+        },
+        yAxis: {
+            min: 0,
+            title: {
+                text: 'Nb of occurences',
+                align: 'high'
+            },
+            labels: {
+                overflow: 'justify'
+            }
+        },
+        tooltip: {
+            valueSuffix: ' errors'
+        },
+        plotOptions: {
+            bar: {
+                dataLabels: {
+                    enabled: true
+                }
+            },
+            series: {
+           		animation: false,
+           	},
+        },
+        legend: {
+            layout: 'vertical',
+            align: 'right',
+            verticalAlign: 'top',
+            x: -40,
+            y: 80,
+            floating: true,
+            borderWidth: 1,
+            backgroundColor: ((Highcharts.theme && Highcharts.theme.legendBackgroundColor) || '#FFFFFF'),
+            shadow: true
+        },
+        credits: {
+            enabled: false
+        },
+        series: [{
+            name: 'Errors',
+            data: data_errors,
+        }]
+    });
+
+	Highcharts.chart('barchart_container_warnings', {
+        chart: {
+            type: 'bar',
+            zoomType: 'xy'
+        },
+        title: {
+            text: 'Warnings Frequencies',
+        },
+        subtitle: {
+			text: '',
+
+		},
+        xAxis: {
+            categories: categories_warnings,
+            title: {
+                text: null
+            }
+        },
+        yAxis: {
+            min: 0,
+            title: {
+                text: 'Nb of occurences',
+                align: 'high'
+            },
+            labels: {
+                overflow: 'justify'
+            }
+        },
+        tooltip: {
+            valueSuffix: ' warnings'
+        },
+        plotOptions: {
+            bar: {
+                dataLabels: {
+                    enabled: true
+                }
+            },
+            series: {
+           		animation: false,
+           	},
+        },
+        legend: {
+            layout: 'vertical',
+            align: 'right',
+            verticalAlign: 'top',
+            x: -40,
+            y: 80,
+            floating: true,
+            borderWidth: 1,
+            backgroundColor: ((Highcharts.theme && Highcharts.theme.legendBackgroundColor) || '#FFFFFF'),
+            shadow: true
+        },
+        credits: {
+            enabled: false
+        },
+        series: [{
+            name: 'Warnings',
+            data: data_warnings,
+        }]
+    });
+
+        
+		
+		
+    var oTable = $('.datatable').DataTable({
+	    select: 'single', // allow selection of a single row
+        dom: 'lBfrtip', // dom for buttons
+    	buttons: [ // buttons for exporting data and column visibility - cf https://datatables.net/extensions/buttons/examples/initialisation/export.html
+			{
+			    extend: 'copy',
+			    title: exportTitle,
+			    exportOptions: {
+                    columns: ':visible'
+                }
+			},
+			{
+			    extend: 'csv',
+			    title: exportTitle,
+			    exportOptions: {
+                    columns: ':visible'
+                } 
+			},
+            {
+                  extend: 'pdf',
+                  title: exportTitle,
+                  exportOptions: {
+                      columns: ':visible'
+                  }
+            },
+            {
+            	extend: 'colvis',
+                postfixButtons: [ 'colvisRestore' ]
+            },
+            {
+            	extend: 'colvisGroup',
+               	text: 'Show all columns',
+               	show: ':hidden',
+            }, 
+        ],
+        scrollX: true,
+        scrollY: '70vh', // https://datatables.net/examples/basic_init/scroll_y_dynamic.html
+        searching: true,
+        processing: true, 
+        serverSide: false,   
+    });
+   
+});
+</script>
+{% endblock extra_javascript %}
+
+{% block title %}Errors Frequency{% endblock title %}
+
+{% block content %}
+
+<div class="row">
+
+{% include '_nav.html' with page='efreqs' %}
+
+  <div class="col-11">
+    <div class="tab-content" id="v-pills-tabContent">
+	  <div class="tab-pane fade show active" >
+			
+		{% crispy form %}
+		
+		<hr>
+		<div id="page_description"></div>
+		<hr>
+		
+		<table border="01" width="100%">
+			<tr>
+				<td>
+					<div id="barchart_container_fatals" style="min-width: 310px; max-height: 600px; max-width: 500px; margin: 0 auto"></div>
+				</td>
+				<td>
+					<div id="barchart_container_errors" style="min-width: 310px; max-height: 600px; max-width: 500px; margin: 0 auto"></div>
+				</td>
+				<td>
+					<div id="barchart_container_warnings" style="min-width: 310px; max-height: 600px; max-width: 500px; margin: 0 auto"></div>
+				</td>
+			</tr>
+		</table>
+		
+		<br><br>
+		 
+ 		<table id="theTable" class="table table-bordered table-striped display datatable" width="100%" cellpadding="0" cellspacing="0">
+	        <thead>
+	            <tr>
+	                <th>Name</th>
+	                <th>Type</th>
+	                <th>Count</th>
+	            </tr>
+	        </thead>
+	        <tbody>
+	        	{% for error in object_list %}
+	        	<tr>
+	        	<td>{{ error.name }}</td>
+	        	<td>{{ error.type }}</td>
+	        	<td>{{ error.count }}</td>
+	        	</tr>
+	        	{% endfor %}
+	        </tbody>
+	    </table>
+		 
+	   </div>
+    </div>
+  </div>
+
+</div>
+
+{% endblock content %}
+

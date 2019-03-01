@@ -1,0 +1,572 @@
+{% extends '_base.html' %}
+
+{% load crispy_forms_tags %}
+
+{% load static %}
+
+{% block extra_javascript %}
+
+
+
+<style>
+td.result_ok {
+    background-color: lightgreen;
+}
+td.result_vot_failed {
+    background-color: yellow;
+}  
+td.result_spec_failed {
+    background-color: orange;
+}  
+td.result_all_failed {
+    background-color: red;
+}  
+td.result_no_reply {
+    background-color: lightgrey;
+} 
+</style>
+
+ 
+{# Load datatables JS and CSS #}
+ <script src="//cdn.datatables.net/1.10.19/js/jquery.dataTables.min.js"></script>
+ <link rel="stylesheet" type="text/css" href="//cdn.datatables.net/1.10.19/css/jquery.dataTables.min.css" />
+    
+{# Datatables buttons #}
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jszip/2.5.0/jszip.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/pdfmake.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/vfs_fonts.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/1.5.4/js/dataTables.buttons.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/1.5.4/js/buttons.colVis.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/1.5.4/js/buttons.html5.min.js"></script>
+
+{# Datatables select #}
+<script type="text/javascript" src="https://cdn.datatables.net/select/1.2.6/js/dataTables.select.min.js"></script>
+
+
+
+{# Load Highcharts JS #}    
+<script src="https://code.highcharts.com/highcharts.js"></script>
+
+
+<!-- Modal window for progress, at the beginning and before the script so that the id myModalProgress is know by the script below -->
+<div class="modal" id="myModalProgress" tabindex="-1" role="dialog" data-backdrop="static" data-keyboard="false" aria-labelledby="myModalHistoryLabel" aria-hidden="true" > <!--   data-backdrop="static" data-keyboard="false" -->
+	<div class="modal-dialog">
+	    <div class="modal-content">
+	    	<div id="myModalProgressHeader" class="modal-header">
+				<h1>Processing...</h1>
+			</div>
+			<div class="modal-body">
+				 <div class="progress">
+	  				<div class="progress-bar progress-bar-striped active" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width:100%">
+	    			<!-- message to be written in the bar here -->
+	 				 </div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+	
+<!-- JS functions for controlling the modal window -->
+<script type="text/javascript">
+	
+	/**
+	 * display a modal progress window with a message
+	 */
+	function showProgress(msg) {
+		// display modal dialog
+		document.getElementById('myModalProgressHeader').innerHTML="<h1>"+msg+"</h1>";
+		$('#myModalProgress').modal('show');
+	}
+
+
+	/**
+	 * hide the modal progress window
+	 */
+	function hideProgress() {
+ 		// hide modal dialog
+		$('#myModalProgress').modal('hide');
+	}	
+
+</script>
+
+
+
+<script type="text/javascript">
+
+// global vars
+var nb_rows=0;
+
+
+$(document).ready(function() {
+
+
+	//alert('ready!');
+	//console.log('ready');
+	var svc_type = '{{ request.session.svc_type }}'; // get the current service type
+	//console.log('svc_type='+svc_type);
+	
+	
+	// title and filenames for documents exported with the buttons extension
+	var exportTitle= 'Services';
+	
+	// DataTables AJAX options contains the URL to fetch data from server
+	dt_ajax_options = {
+            url:  "{% url 'services_json' %}"     	    
+	}
+	
+	// get the server passed by the view
+	var svc_server = '{{ svc_server }}'; 
+	
+	console.log('svc_server=',svc_server)
+	
+	// if they mean something, add them to the AJAX data 
+	// inspired by https://stackoverflow.com/questions/37349073/url-arguments-with-django-ajax-datatable
+	
+	if(svc_server!='None') {
+		dt_ajax_options['data'] = {"svc_server":svc_server};
+    }
+	
+
+	// set page description
+	var page_description = svc_type+' services';
+	if(svc_server!='None') {
+		page_description += ' for server '+svc_server;
+	}
+	$('#page_description').html(page_description);
+
+
+	$("#servicesForm").submit( function(eventObj) {
+
+		//alert('servicesForm submitted !');
+		
+		//console.log(eventObj);
+		//console.log(buttonClicked);
+		if(buttonClicked==1) {
+			//showProgress('Loading Data...');
+			return true; // display
+		}
+		
+		if(buttonClicked==2) { // validate
+		
+			// check if a row is selected
+		 	nb_selected = oTable.rows('.selected').data().length;
+			
+		    if(nb_selected==0) {
+		    	alert('Please select one service');
+		    	return false;
+		    }
+	
+			// get data from selected row
+			var ivoid
+			var url;
+			var params;
+			var spec;
+			var specv;
+			
+		    for (var i = 0; i < oTable.rows('.selected').data().length; i++) { 
+		        ivoid = oTable.rows('.selected').data()[i][1]; 		// col 1 (starting at 0) = IVOID
+		        url = oTable.rows('.selected').data()[i][2];		// col 2 = URL
+		        spec = oTable.rows('.selected').data()[i][14];		// col 14 = spec
+		        specv = oTable.rows('.selected').data()[i][15];		// col 15 = specv
+				params = oTable.rows('.selected').data()[i][16];	// col 16 = params       	
+		    }
+			
+			// fill the hidden form elements
+			$("#servicesForm")[0].elements['ivoid'].value=ivoid;
+			$("#servicesForm")[0].elements['url'].value=url;
+			$("#servicesForm")[0].elements['params'].value=params;
+			$("#servicesForm")[0].elements['spec'].value=spec;
+			$("#servicesForm")[0].elements['specv'].value=specv;
+			
+			// set the tab for the result page
+			old_target = $("#servicesForm")[0].target;
+			$("#servicesForm")[0].target = '_blank';
+			
+			setTimeout(function() { // since we just changed it, reset the target of the form to what it was
+    			// executes after the form has been sent
+    			console.log('resetting target to='+old_target);
+    			$("#servicesForm")[0].target = old_target;
+  			}, 500);
+			
+			return true;
+		}
+		
+		
+		if(buttonClicked==3) { // errors
+		
+			// check if a row is selected
+		 	nb_selected = oTable.rows('.selected').data().length;
+			
+		    if(nb_selected==0) {
+		    	alert('Please select one service');
+		    	return false;
+		    }
+	
+			// get data from selected row
+			var ivoid
+			var url;
+			
+		    for (var i = 0; i < oTable.rows('.selected').data().length; i++) { 
+		        ivoid = oTable.rows('.selected').data()[i][1]; // col 1 (starting at 0) = IVOID
+		        url = oTable.rows('.selected').data()[i][2];	// col 2 = URL
+		    }
+			
+			console.log('ivoid='+ivoid);
+			console.log('url='+url); // may contain an &amp; here, because fetched from the HTML table
+			
+			// fill the hidden form elements
+			$("#servicesForm")[0].elements['ivoid'].value=ivoid;
+			$("#servicesForm")[0].elements['url'].value=url;
+			
+			// set the tab for the result page
+			old_target = $("#servicesForm")[0].target;
+			$("#servicesForm")[0].target = 'errors';
+			
+			setTimeout(function() { // since we just changed it, reset the target of the form to what it was
+    			// executes after the form has been sent
+    			console.log('resetting target to='+old_target);
+    			$("#servicesForm")[0].target = old_target;
+  			}, 500);
+  			
+			return true;
+		}
+		
+		
+		
+		
+    });
+	
+
+    var oTable = $('.datatable').DataTable({
+        select: 'single', // allow selection of a single row
+        dom: 'lBfrtip', // dom for buttons
+    	buttons: [ // buttons for exporting data and column visibility - cf https://datatables.net/extensions/buttons/examples/initialisation/export.html
+			{
+			    extend: 'copy',
+			    title: exportTitle,
+			    exportOptions: {
+                    columns: ':visible'
+                }
+			},
+			{
+			    extend: 'csv',
+			    title: exportTitle,
+			    exportOptions: {
+                    columns: ':visible'
+                } 
+			},
+            {
+                  extend: 'pdf',
+                  title: exportTitle,
+                  exportOptions: {
+                      columns: ':visible'
+                  }
+            },
+            {
+            	extend: 'colvis',
+                postfixButtons: [ 'colvisRestore' ]
+            },
+            {
+            	extend: 'colvisGroup',
+               	text: 'Show all columns',
+               	show: ':hidden',
+            }, 
+        ],
+        scrollX: true,
+        scrollY: '70vh', // https://datatables.net/examples/basic_init/scroll_y_dynamic.html
+        searching: true,
+        processing: true,
+        serverSide: true,
+        searchDelay: 1000, // set a throttle frequency for searching
+        //ajax: "{% url 'services_json' %}",  
+        ajax: dt_ajax_options,
+        
+        "createdRow": function ( row, data, index ) { // callback to change background-color depending on validation results
+
+			//console.log('createdRow data=',data)
+			
+		    var nb_cols=28; // nb of cols in result set 
+		    var col_result_vot=18; // # of cols for result_vot, starting with first col = 0
+		    var col_result_spec=19;
+		    var col_nb_fatal=25;
+
+
+		    //console.log(data[col_result_vot]+' '+data[col_result_spec]);
+		    
+		    // set row class for colorization of row according to validator results
+		    
+		    
+		    if($.inArray(svc_type, ['SIA','SSA','ConeSearch'])>=0) {
+			    
+			    if ( data[col_result_vot].indexOf('yes') > -1 && data[col_result_spec].indexOf('yes') > -1) {
+			    	//$(row).addClass('result_ok'); // does not work, we must set the class for all cols:
+	    		    for (i=0;i<nb_cols;i++) { 
+	    		    	$('td', row).eq(i).addClass('result_ok');
+	    		    }
+			    }
+	
+			    else if ( data[col_result_vot].indexOf('no') > -1 && data[col_result_spec].indexOf('yes') > -1) {
+			    	//$(row).addClass('result_vot_failed');// does not work, we must set the class for all cols:
+	    		    for (i=0;i<nb_cols;i++) { 
+			        	$('td', row).eq(i).addClass('result_vot_failed');
+	    		    }
+			    }
+	
+	
+			    else if ( data[col_result_vot].indexOf('yes') > -1 && data[col_result_spec].indexOf('no') > -1) {
+			    	//$(row).addClass('result_spec_failed');// does not work, we must set the class for all cols:
+			    	for (i=0;i<nb_cols;i++) { 	
+			        	$('td', row).eq(i).addClass('result_spec_failed');
+	    		    }
+			    }
+	
+			    else if ( data[col_result_vot].indexOf('no') > -1 && data[col_result_spec].indexOf('no') > -1) {
+			    	//$(row).addClass('result_all_failed');// does not work, we must set the class for all cols:
+			    	for (i=0;i<nb_cols;i++) { 	
+			        	$('td', row).eq(i).addClass('result_all_failed');
+	    		    }
+			    }
+	
+	
+			    else if ( data[col_result_vot].indexOf('') > -1 && data[col_result_spec].indexOf('') > -1) {
+    		    	//$(row).addClass('result_no_reply');// does not work, we must set the class for all cols:
+			    	for (i=0;i<nb_cols;i++) { 
+			        	$('td', row).eq(i).addClass('result_no_reply');
+	    		    }
+			    }
+			    /*
+			    else if ( data[col_result_vot].indexOf('') > -1 && data[col_result_spec].indexOf('') > -1 && data[col_nb_fatal] >= 1 ) {
+	    		    for (i=0;i<nb_cols;i++) { 
+			        	$('td', row).eq(i).addClass('result_fatal');
+	    		    }
+			    }
+			    */
+		    } 
+		    
+		    
+		    if($.inArray(svc_type, ['TAP'])==0) {
+			
+				// colorization for TAP services to go here
+				
+			}
+		    
+		}, // end callback
+
+		
+		
+        
+        
+            
+    });
+   
+   	// called when table is displayed
+    oTable.on( 'init.dt', function (e,settings,json) {
+        console.log( 'Table initialisation complete settings=',settings,' json=',json);
+        //console.log(json.nb_result_ok);
+    } )
+    
+    
+	// called when a search is done
+   	oTable.on( 'search.dt', function () {
+   		var searchTerm = oTable.search();
+    	console.log( 'Currently applied global search: '+searchTerm );
+	} );
+
+	// called on xhr event => fired when an Ajax request is completed.
+	oTable.on( 'xhr', function ( e, settings, json ) {
+    	console.log( 'Ajax event occurred. event=',e,'json=: ', json );
+    	
+    	if($.inArray(svc_type, ['SIA','SSA','ConeSearch'])>=0) { // draw chart for those service types
+    	
+	    	// get stats from JSON response for highcharts
+	    	old_nb_rows = nb_rows; // nb_rows is a global var defined above
+	    	nb_rows = json.recordsFiltered;
+	    	
+	    	if(nb_rows!=old_nb_rows) { // if nb_rows have changed, redraw the chart
+	    	 
+		    	nb_result_ok = json.nb_result_ok;
+		    	nb_result_vot_failed = json.nb_result_vot_failed;
+		    	nb_result_spec_failed = json.nb_result_spec_failed;
+		    	nb_result_all_failed = json.nb_result_all_failed;
+		    	nb_result_no_reply = json.nb_result_no_reply;
+		    	
+		    	
+			    	
+			    	
+			    // Draw Pie chart
+			
+			    percent_result_ok = 100.0*nb_result_ok/nb_rows;
+			    percent_result_vot_failed = 100.0*nb_result_vot_failed/nb_rows;
+			    percent_result_spec_failed = 100.0*nb_result_spec_failed/nb_rows;
+			    percent_result_all_failed = 100.0*nb_result_all_failed/nb_rows;
+			    percent_result_no_reply = 100.0*nb_result_no_reply/nb_rows;
+			    
+			    //alert(percent_result_ok); // nb or rows
+			    
+			
+				$(function () {
+				    Highcharts.chart('piechart_container', {
+				        chart: {
+				            plotBackgroundColor: null,
+				            plotBorderWidth: null,
+				            plotShadow: false,
+				            type: 'pie',
+				            animation: false,
+				            
+				        },
+				        title: {
+				            text: 'Validation Results',
+				        },
+						subtitle: {
+							text: '',
+			 					//'subtitle',
+						},
+		
+				        tooltip: {
+				            pointFormat: '{series.name}: <b>{point.nb} = {point.percentage:.1f}%</b>'
+				        },
+				        plotOptions: {
+				            pie: {
+				                allowPointSelect: true,
+				                cursor: 'pointer',
+				                dataLabels: {
+				                    enabled: true,
+				                    format: '<b>{point.name}</b>: {point.percentage:.1f} %',
+				                },
+				        		colors: [	'lightgreen',
+				        					'yellow', 
+				        					'orange', 
+				        				 	'red',
+				        				 	'lightgrey'
+				        				],
+				        		point: {
+				                    events:{
+				                        click: function (event) { // upon clicking on a pie portion 
+				                            //alert(event.id);
+				                            //alert(this.id);
+											//console.log(this.id);
+											//console.log(table);
+											var current_class = this.id; // put this in a var so we can access it in the anonymous function later
+											result = this.id; // result_ok etc.
+											console.log('result=',result);
+											// change the AJAX url to include this constraint, which will be processed by filter_queryset
+											oTable.ajax.url("{% url 'services_json' %}" + "?restrict="+result);
+											// reload the data with the URL above
+											oTable.ajax.reload();
+											
+				                        }
+				                    }
+				        		}
+				            }
+				        },
+				        credits: {
+				            enabled: false
+				        },
+				        series: [{
+				            name: 'Services',
+				            colorByPoint: true,
+				            animation: false,
+				            data: [{
+				                name: 'OK ',
+				                y: percent_result_ok,
+				                nb: nb_result_ok,
+				                id: 'result_ok',
+				            }, {
+				                name: 'VOT failed',
+				                y: percent_result_vot_failed,
+				                nb: nb_result_vot_failed,
+				                id: 'result_vot_failed',
+				            }, {
+				                name: 'Spec failed',
+				                y: percent_result_spec_failed,
+				                nb: nb_result_spec_failed,
+				                id: 'result_spec_failed',
+				            },{
+				                name: 'VOT+Spec failed',
+				                y: percent_result_all_failed,
+				                nb: nb_result_all_failed,
+				                id: 'result_all_failed',
+				            },{
+				                name: 'No reply',
+				                y: percent_result_no_reply,
+				                nb: nb_result_no_reply,
+				                id: 'result_no_reply',
+				            },
+				            ]
+				        }]
+				    });
+				}); // function for highchart  
+			} // if nb_rows has changed
+		} // if draw pie chart
+	}); // on xhr
+
+
+}); // document ready
+</script>
+{% endblock extra_javascript %}
+
+{% block title %}Services{% endblock title %}
+
+{% block content %}
+
+<div class="row">
+
+{% include '_nav.html' with page='services' %}
+
+  <div class="col-11">
+    <div class="tab-content" id="v-pills-tabContent">
+	  <div class="tab-pane fade show active" >
+			
+		{% crispy form %}
+		<hr>
+		<div id="page_description"></div>
+		<hr>
+		
+		<div id="piechart_container" style="min-width: 310px; max-height: 500px; max-width: 600px; margin: 0 auto"></div>
+		
+ 		<table id="theTable" class="table table-bordered table-striped display datatable" width="100%" cellpadding="0" cellspacing="0">
+	        <thead>
+	            <tr>
+	            	<th>id</th>
+	                <th>IVOID</th>
+	                <th>URL</th>
+	                <th>Title</th>
+	                <th>Short&nbsp;Name</th>
+	                <th>Date&nbsp;Insert</th>
+	                <th>Date&nbsp;Update</th>
+	                <th>VOR&nbsp;Status</th>
+	                <th>VOR&nbsp;Created</th>
+	                <th>VOR&nbsp;Updated</th>
+	                <th>Contact&nbsp;Name</th>
+	                <th>Contact&nbsp;Email</th>
+	                <th>Date&nbsp;Val</th>
+	                <th>XSI&nbsp;Type</th>
+	                <th>Spec</th>
+	                <th>Spec&nbsp;Version</th>
+	                <th>Params</th>
+	                <th>Val&nbsp;Mode</th>
+	                <th>Result&nbsp;VOT</th>
+	                <th>Result&nbsp;Spec</th>
+	                <th>Nb&nbsp;Warn</th>
+	                <th>Nb&nbsp;Err</th>
+	                <th>Nb&nbsp;Fatal</th>
+	                <th>Days&nbsp;Same</th>
+	                <th>Nb&nbsp;Fail</th>
+	                <th>Provenance</th>
+	                <th>StandardID</th>
+	                <th>Svc&nbsp;Type</th>
+	            </tr>
+	        </thead>
+	        <tbody>
+	        </tbody>
+	    </table>
+		
+	   </div>
+    </div>
+  </div>
+
+</div>
+
+{% endblock content %}
+
